@@ -1,0 +1,88 @@
+apply plugin: 'war'
+
+task wrapper(type: Wrapper) {
+	gradleVersion = '2.3'
+}
+
+sourceCompatibility = 1.7
+group = 'com.notsocomplex'
+version = '0.1'
+
+project.ext {
+	junitVersion = '4.+'
+}
+
+sourceSets {
+	// Defines where the Java sources and resources files of the integration tests are located
+	integrationTest {
+		java {
+			srcDir file('src/integrationTest/java')
+		}
+		resources {
+			srcDir file('src/integrationTest/resources')
+		}
+	}
+}
+
+war {        
+    manifest {
+        attributes 'Implementation-Title': 'Gradle example configured to run integration tests', 'Implementation-Version': version
+    }
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Add a dependency to JUnit for unit test. Add Mockito and other libs here if need be
+	testCompile 'junit:junit:' + project.junitVersion
+		
+	// Add the output of the main and test source sets so that the integration tests 
+	// have access to the compiled classes to run tests against
+	integrationTestCompile sourceSets.main.output		
+	integrationTestCompile sourceSets.test.output 
+	
+	// Configures the dependency reusing those of the 'test' task. 
+	// This will allow reusage of JUnit and other mock libraries for instance 
+	integrationTestCompile configurations.testCompile
+	integrationTestRuntime configurations.testRuntime	
+}
+
+test {
+	// Enable the System.out if you want
+	testLogging.showStandardStreams = true
+	
+	// Before each test, log the execution detail for clarity
+	beforeTest { 
+		descriptor -> logger.lifecycle("Running test : '" + descriptor + "'")
+  	}
+}
+
+// Extend the Test task
+task integrationTest(type: Test) {
+	
+	// Generated reports and execution files for JUnit will be copied in these 
+	// directories	
+	reports.junitXml.destination = file("$buildDir/integration-test-results/")
+	reports.html.destination = file("$buildDir/integration-test-results/")
+	
+	// Adds the integration tests classes to the test suite along with 
+	// the runtime classpath
+	testClassesDir = sourceSets.integrationTest.output.classesDir
+	classpath += sourceSets.integrationTest.runtimeClasspath
+	
+	// Enable the System.out if you want
+	testLogging.showStandardStreams = true
+		
+	// Before each test, log the execution detail for clarity		
+	beforeTest { descriptor ->
+		logger.lifecycle("Running test: " + descriptor)
+	}
+}
+
+// When executing the task 'check', we now force the execution of integration tests as well
+check.dependsOn integrationTest
+
+// Running integration tests requires that unit tests are executed first
+integrationTest.dependsOn test
